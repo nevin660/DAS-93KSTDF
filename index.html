@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STDF DAS — 测试数据分析系统</title>
+<script src="js/plotly.min.js" charset="utf-8"></script>
+<style>
+:root{ --primary:#52c41a; --primary-d:#3a9d12; --bg:#f3f9ef; --side:#fff;
+  --line:#e3eede; --txt:#33433a; --txt2:#5d7065; --hover:#f0fbe6;
+  --grad:linear-gradient(135deg,#a8e063 0%,#56ab2f 100%);
+  --grad-soft:linear-gradient(135deg,#b6e98a 0%,#6cc04a 100%); }
+*{ box-sizing:border-box; }
+body{ font-family:"Helvetica Neue",Helvetica,"PingFang SC","Microsoft YaHei",Tahoma,Arial,sans-serif;
+  margin:0; background:var(--bg); color:var(--txt); font-size:14px; }
+
+/* ---------- top navbar ---------- */
+.navbar{ height:50px; background:var(--grad); color:#fff; display:flex; align-items:center;
+  padding:0 16px 0 0; box-shadow:0 2px 6px rgba(40,120,30,.2); position:relative; z-index:10; }
+.navbar .logo{ width:200px; height:50px; display:flex; align-items:center; gap:8px;
+  font-size:17px; font-weight:600; padding-left:18px; letter-spacing:.5px; }
+.navbar .logo svg{ width:22px; height:22px; }
+.navbar .burger{ background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0 14px;height:50px; }
+.navbar .topnav{ display:flex; gap:4px; }
+.navbar .topnav a{ color:rgba(255,255,255,.9); padding:0 14px; height:50px; line-height:50px;
+  text-decoration:none; font-size:14px; }
+.navbar .topnav a.on, .navbar .topnav a:hover{ background:rgba(255,255,255,.15); color:#fff; }
+.navbar .right{ margin-left:auto; display:flex; align-items:center; gap:14px; font-size:13px; }
+.navbar .right .meta{ opacity:.92; }
+.navbar .right .yld{ background:rgba(255,255,255,.95); color:#237804; padding:2px 12px;
+  border-radius:10px; font-weight:700; }
+.navbar .right .newbtn{ background:rgba(255,255,255,.18); color:#fff; border:1px solid rgba(255,255,255,.4);
+  padding:5px 12px; border-radius:4px; cursor:pointer; }
+.navbar .right .newbtn:hover{ background:rgba(255,255,255,.3); }
+
+/* ---------- layout ---------- */
+.layout{ display:flex; height:calc(100vh - 50px); }
+.sidebar{ width:200px; background:var(--side); border-right:1px solid var(--line); overflow-y:auto;
+  flex-shrink:0; transition:width .15s; }
+.layout.collapsed .sidebar{ width:0; }
+.menu-group{ }
+.menu-gtitle{ padding:11px 16px 6px; color:#8a98ab; font-size:12px; display:flex; align-items:center; gap:7px; }
+.menu-leaf{ padding:9px 16px 9px 38px; cursor:pointer; color:var(--txt); font-size:14px;
+  border-left:3px solid transparent; display:flex; align-items:center; gap:8px; }
+.menu-leaf:hover{ background:var(--hover); }
+.menu-leaf.on{ background:var(--hover); color:var(--primary); border-left-color:var(--primary); font-weight:600; }
+.menu-leaf.top{ padding-left:18px; }
+.menu-ic{ width:15px; text-align:center; opacity:.8; }
+
+.main{ flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.crumb{ background:#fff; border-bottom:1px solid var(--line); padding:9px 18px; font-size:13px; color:var(--txt2); }
+.crumb b{ color:var(--txt); font-weight:600; }
+.toolbar{ background:#fff; border-bottom:1px solid var(--line); padding:8px 18px; display:flex;
+  gap:14px; align-items:center; flex-wrap:wrap; }
+.toolbar label{ font-weight:600; color:var(--txt); }
+.toolbar select,.toolbar input{ padding:3px 7px; border:1px solid #d9d9d9; border-radius:4px; }
+.toolbar .sitechk{ display:inline-flex; gap:8px; }
+.toolbar button{ background:var(--grad); color:#fff; border:none; padding:5px 12px; border-radius:4px;
+  cursor:pointer; box-shadow:0 1px 3px rgba(86,171,47,.3); }
+.toolbar button:hover{ filter:brightness(1.06); }
+.content{ flex:1; overflow:auto; padding:14px 18px; }
+
+/* ---------- cards / tables ---------- */
+.panel{ background:#fff; border:1px solid var(--line); border-radius:4px; padding:14px 16px;
+  box-shadow:0 1px 2px rgba(0,21,41,.04); }
+.panel.hidden{ display:none; }
+table{ border-collapse:collapse; background:#fff; width:100%; font-size:12px; }
+th,td{ border:1px solid #eef1f5; padding:4px 8px; text-align:right; white-space:nowrap; }
+th{ background:#f3faea; color:var(--txt); position:sticky; top:0; cursor:pointer; font-weight:600; }
+td.l,th.l{ text-align:left; }
+tr:hover td{ background:#f6fcef; }
+.tablewrap{ max-height:72vh; overflow:auto; border:1px solid var(--line); border-radius:4px; }
+.cpk-bad{ background:#fff1f0; } .cpk-warn{ background:#fffbe6; } .cpk-ok{ background:#f6ffed; }
+.pf0{ color:#389e0d; } .pf1{ color:#cf1322; font-weight:600; }
+.kv td:first-child{ font-weight:600; background:#fafbfc; text-align:left; width:200px; }
+.kv td:last-child{ text-align:left; }
+.kv{ width:auto; min-width:520px; }
+.note{ color:#8a98ab; font-size:11px; margin:6px 0; }
+.subbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+.subbar label{ font-weight:600; }
+.subbar select,.subbar input{ padding:3px 6px; border:1px solid #d9d9d9; border-radius:4px; }
+.seg{ display:inline-flex; border:1px solid var(--primary); border-radius:5px; overflow:hidden; }
+.seg button{ background:#fff; color:var(--primary); border:none; padding:5px 14px; cursor:pointer; }
+.seg button.on{ background:var(--grad); color:#fff; }
+/* 完整数据 虚拟滚动网格 */
+.grid-scroll{ height:70vh; overflow:auto; border:1px solid var(--line); border-radius:4px; background:#fff; }
+.grid{ border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:12px; }
+.grid th,.grid td{ border-right:1px solid #eef1f5; border-bottom:1px solid #eef1f5; padding:2px 6px;
+  height:26px; box-sizing:border-box; white-space:nowrap; text-align:right; overflow:hidden; }
+.grid th.l,.grid td.l{ text-align:left; }
+.grid thead th{ position:sticky; top:0; background:#e6f3d6; color:var(--txt); z-index:3; font-weight:600; }
+.grid .stk{ position:sticky; background:#fff; z-index:2; }
+.grid thead th.stk{ z-index:5; background:#e6f3d6; }
+.grid tbody tr:hover td{ background:#f3fbe9; }
+.grid tbody tr:hover td.stk{ background:#f3fbe9; }
+.grid td.cpk-bad{ background:#fff1f0; color:#cf1322; }
+.grid td.pf0{ color:#389e0d; font-weight:600; } .grid td.pf1{ color:#cf1322; font-weight:700; }
+.statcards{ display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+.card{ background:#fff; border:1px solid var(--line); border-radius:6px; padding:10px 16px;
+  box-shadow:0 1px 2px rgba(40,120,30,.06); border-top:3px solid transparent;
+  background-image:linear-gradient(#fff,#fff),var(--grad); background-origin:border-box;
+  background-clip:padding-box,border-box; }
+.card b{ font-size:20px; font-weight:700; background:var(--grad); -webkit-background-clip:text;
+  background-clip:text; color:transparent; } .card span{ color:#8a98ab; font-size:12px; }
+h3{ color:var(--txt); }
+
+/* ---------- landing / loading ---------- */
+#landing{ min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:linear-gradient(150deg,#aee571 0%,#56ab2f 55%,#2e8b57 100%); color:#fff; padding:20px; }
+#landing h1{ font-size:30px; margin:0 0 6px; }
+#landing p{ opacity:.9; margin:2px 0; }
+#drop{ margin-top:26px; width:min(560px,92vw); border:3px dashed #d6f3b3; border-radius:14px;
+  padding:42px 24px; text-align:center; background:rgba(255,255,255,.1); transition:.15s; cursor:pointer; }
+#drop.hover{ background:rgba(255,255,255,.22); border-color:#fff; }
+#drop .big{ font-size:18px; font-weight:600; } #drop .sub{ opacity:.85; font-size:13px; margin-top:8px; }
+.pickrow{ display:flex; gap:12px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
+.pickbtn{ background:#fff; color:#3a9d12; border:none; padding:11px 26px;
+  font-size:15px; font-weight:700; border-radius:8px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.15); }
+.pickbtn.ghost{ background:rgba(255,255,255,.16); color:#fff; box-shadow:none; border:1px solid rgba(255,255,255,.65); }
+.filelist{ margin-top:18px; max-height:46vh; overflow:auto; text-align:left; }
+.filerow{ display:flex; justify-content:space-between; gap:16px; padding:9px 14px; border-radius:8px;
+  cursor:pointer; background:rgba(255,255,255,.1); margin-bottom:7px; }
+.filerow:hover{ background:rgba(255,255,255,.26); }
+.filerow .fz{ opacity:.85; white-space:nowrap; }
+.filesel{ max-width:230px; padding:3px 6px; border-radius:4px; border:1px solid rgba(255,255,255,.5);
+  background:rgba(255,255,255,.18); color:#fff; font-size:13px; }
+.filesel option{ color:#222; }
+.foot{ margin-top:34px; font-size:11px; opacity:.8; text-align:center; max-width:560px; }
+#loading{ position:fixed; inset:0; background:rgba(24,82,30,.92); color:#fff; display:none;
+  flex-direction:column; align-items:center; justify-content:center; z-index:50; }
+#loading .spin{ width:46px; height:46px; border:5px solid #8fd96a; border-top-color:#fff;
+  border-radius:50%; animation:sp 1s linear infinite; margin-bottom:18px; }
+@keyframes sp{ to{ transform:rotate(360deg); } }
+#app{ display:none; }
+</style></head>
+<body>
+
+<!-- ===== Landing / file picker ===== -->
+<div id="landing">
+  <h1>STDF DAS</h1>
+  <p>测试数据分析系统 · V93000 / 通用 ATE · 浏览器本地解析</p>
+  <p>晶圆图 · 直方图 · 趋势 · Cpk 统计 · 相关性 · 失效 Pareto · CSV 导出</p>
+  <div id="drop">
+    <div class="big">把 STDF 文件 / 文件夹 / 压缩包拖到这里</div>
+    <div class="sub">支持 .stdf · .zip · .tar.gz · .tgz · .gz · 整个文件夹（可多选 / 批量）</div>
+    <div class="pickrow">
+      <button class="pickbtn" id="pickbtn">选择文件</button>
+      <button class="pickbtn ghost" id="pickdir">选择文件夹</button>
+    </div>
+    <input type="file" id="fileinput" multiple accept=".stdf,.std,.gz,.zip,.tar,.tgz,.tar.gz" style="display:none">
+    <input type="file" id="dirinput" webkitdirectory multiple style="display:none">
+  </div>
+  <div class="foot">🔒 文件在你的浏览器本地解析 / 解压，<b>不会上传到任何服务器</b>，全程离线可用。</div>
+</div>
+
+<!-- ===== Loading overlay ===== -->
+<div id="loading"><div class="spin"></div><div id="loadtxt">解析中…</div></div>
+
+<!-- ===== App shell (DAS framework) ===== -->
+<div id="app">
+  <div class="navbar">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 4l9 16 9-16-9 5-9-5z" fill="#fff"/></svg>
+      STDF DAS
+    </div>
+    <button class="burger" id="burger">☰</button>
+    <div class="topnav">
+      <a class="on" href="javascript:;">📊 数据中心</a>
+      <a href="javascript:;" id="nav_help">❓ 在线帮助</a>
+    </div>
+    <div class="right">
+      <select class="filesel" id="filesel" title="切换已导入的文件" style="display:none"></select>
+      <span class="meta" id="hmeta"></span>
+      <span class="yld" id="hyld"></span>
+      <button class="newbtn" id="newfile">↻ 换文件</button>
+    </div>
+  </div>
+  <div class="layout" id="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="crumb" id="crumb">数据中心 / <b>数据概览</b></div>
+      <div class="toolbar" id="bar">
+        <label>Site:</label><span class="sitechk" id="sites"></span>
+        <span id="testsel" style="display:none"><label>Test:</label><select id="testdd"></select></span>
+        <span id="wmsel" style="display:none"><label>Color by:</label><select id="wmdd"></select></span>
+        <span style="flex:1"></span>
+        <button onclick="STDFUI.expStats()">⤓ Stats CSV</button>
+        <button onclick="STDFUI.expWide()">⤓ DUT CSV</button>
+        <button onclick="STDFUI.expLong()">⤓ Long CSV</button>
+      </div>
+      <div class="content" id="content">
+        <div class="panel" id="p_overview"></div>
+        <div class="panel hidden" id="p_stats"></div>
+        <div class="panel hidden" id="p_hist"><div id="chart_hist" style="height:70vh"></div></div>
+        <div class="panel hidden" id="p_trend"><div id="chart_trend" style="height:70vh"></div></div>
+        <div class="panel hidden" id="p_wafer"><div id="chart_wafer" style="height:72vh"></div></div>
+        <div class="panel hidden" id="p_corr"></div>
+        <div class="panel hidden" id="p_box"><div id="chart_box" style="height:70vh"></div></div>
+        <div class="panel hidden" id="p_pareto"></div>
+        <div class="panel hidden" id="p_dut"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="js/fflate.min.js"></script>
+<script src="js/importer.js"></script>
+<script src="js/stdf.js"></script>
+<script src="js/viewer.js"></script>
+<script>
+const fi = document.getElementById("fileinput");
+const di = document.getElementById("dirinput");
+const drop = document.getElementById("drop");
+const filesel = document.getElementById("filesel");
+const DROP_HTML = drop.innerHTML;
+let LOADED = [];
+
+function attachPickers() {
+  const pb = document.getElementById("pickbtn"), pd = document.getElementById("pickdir");
+  if (pb) pb.onclick = e => { e.stopPropagation(); fi.click(); };
+  if (pd) pd.onclick = e => { e.stopPropagation(); di.click(); };
+}
+attachPickers();
+fi.onchange = () => { if (fi.files.length) importFiles([...fi.files]); };
+di.onchange = () => { if (di.files.length) importFiles([...di.files]); };
+filesel.onchange = () => loadItem(LOADED[+filesel.value], +filesel.value);
+document.getElementById("newfile").onclick = showLanding;
+document.getElementById("burger").onclick = () => document.getElementById("layout").classList.toggle("collapsed");
+document.getElementById("nav_help").onclick = () => alert("STDF DAS — 浏览器本地 STDF 分析。\n支持单文件 / 文件夹 / 压缩包(.zip/.tar.gz/.tgz/.gz)批量导入。\n多个文件时右上角下拉可切换。\n数据不上传，全程本地。");
+
+["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("hover"); }));
+drop.addEventListener("dragleave", e => { e.preventDefault(); drop.classList.remove("hover"); });
+drop.addEventListener("drop", async e => {
+  e.preventDefault(); drop.classList.remove("hover");
+  showLoading("读取拖入内容…"); await tick();
+  try { await onCollected(await STDFImport.fromDataTransfer(e.dataTransfer)); }
+  catch (err) { alert("导入失败：" + err.message); console.error(err); }
+  finally { hideLoading(); }
+});
+
+const tick = () => new Promise(r => setTimeout(r, 30));
+function showLoading(t) { document.getElementById("loadtxt").textContent = t || "处理中…"; document.getElementById("loading").style.display = "flex"; }
+function hideLoading() { document.getElementById("loading").style.display = "none"; }
+function txtSet(t) { document.getElementById("loadtxt").textContent = t; }
+function showLanding() {
+  document.getElementById("app").style.display = "none";
+  drop.innerHTML = DROP_HTML; attachPickers();
+  document.getElementById("landing").style.display = "flex"; fi.value = ""; di.value = "";
+}
+
+async function importFiles(files) {
+  showLoading("读取 / 解压…"); await tick();
+  try { await onCollected(await STDFImport.collect(files)); }
+  catch (err) { alert("导入失败：" + err.message); console.error(err); }
+  finally { hideLoading(); }
+}
+
+async function onCollected(list) {
+  if (!list || !list.length) { alert("未找到 STDF 文件（.stdf/.std），或压缩包/文件夹内没有。"); return; }
+  LOADED = list;
+  filesel.innerHTML = list.map((it, i) => `<option value="${i}">${it.name}</option>`).join("");
+  filesel.style.display = list.length > 1 ? "" : "none";
+  if (list.length === 1) await loadItem(list[0], 0);
+  else showFileList(list);
+}
+
+function showFileList(list) {
+  const total = (list.reduce((a, b) => a + (b.size || 0), 0) / 1024 / 1024).toFixed(1);
+  const rows = list.map((it, i) => `<div class="filerow" data-i="${i}"><span class="fn">📄 ${it.name}</span><span class="fz">${((it.size || 0) / 1024 / 1024).toFixed(1)} MB</span></div>`).join("");
+  drop.innerHTML = `<div class="big">找到 ${list.length} 个 STDF 文件（共 ${total} MB），点击选择：</div><div class="filelist">${rows}</div>`;
+  drop.querySelectorAll(".filerow").forEach(el => el.onclick = () => { const i = +el.getAttribute("data-i"); loadItem(list[i], i); });
+  document.getElementById("landing").style.display = "flex";
+}
+
+async function loadItem(item, idx) {
+  showLoading(`解析 ${item.name}…`); await tick();
+  try {
+    const buf = await item.load();
+    txtSet("解析 STDF 记录…"); await tick();
+    const D = parseSTDF(buf, item.name, frac => txtSet(`解析中… ${(frac*100).toFixed(0)}%`));
+    if (!D.parts.length) throw new Error("未解析到 DUT（PRR）记录，可能不是标准 STDF V4。");
+    txtSet("计算统计 / 渲染…"); await tick();
+    STDFUI.initApp(STDFUI.buildPayload(D));
+    if (idx != null && filesel.options.length > idx) filesel.value = idx;
+    document.getElementById("landing").style.display = "none";
+    document.getElementById("app").style.display = "block";
+  } catch (err) { alert("解析失败：" + err.message); console.error(err); }
+  finally { hideLoading(); }
+}
+</script>
+</body></html>
